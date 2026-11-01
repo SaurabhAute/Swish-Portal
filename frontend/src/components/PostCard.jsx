@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -18,7 +18,10 @@ const PostCard = ({ post, onDelete }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const isOwner = user && (user._id === post.authorId || user._id === post.author?.id);
+  const currentUserId = user?._id || user?.id;
+  const postAuthorId = post.author?.id || post.authorId;
+  const isOwner = Boolean(currentUserId && postAuthorId && String(currentUserId) === String(postAuthorId));
+
   const authorName = post.author?.name || 'Unknown';
   const authorAvatar = post.author?.profilePhotoUrl || '';
   const initials = authorName
@@ -46,7 +49,7 @@ const PostCard = ({ post, onDelete }) => {
       {/* ── Author Header ──────────────────────── */}
       <div className="post-card-header">
         <Link
-          to={`/profile/${post.author?.id || post.authorId}`}
+          to={`/profile/${postAuthorId}`}
           className="post-author-link"
           aria-label={`View ${authorName}'s profile`}
         >
@@ -142,6 +145,7 @@ const PostCard = ({ post, onDelete }) => {
  * Returns a human-readable relative time string.
  */
 function getRelativeTime(dateStr) {
+  if (!dateStr) return 'just now';
   const now = Date.now();
   const then = new Date(dateStr).getTime();
   const diffMs = now - then;

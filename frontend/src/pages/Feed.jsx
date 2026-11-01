@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { postService } from '../services/api';
@@ -17,7 +17,7 @@ const Feed = () => {
   const userInitial = user?.profile?.firstName?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || '?';
 
   // Load initial feed
-  const loadFeed = useCallback(async () => {
+  const loadFeed = async () => {
     setLoading(true);
     setError('');
     try {
@@ -30,11 +30,31 @@ const Feed = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    loadFeed();
-  }, [loadFeed]);
+    let isMounted = true;
+    postService.getFeed({ limit: 10 })
+      .then((data) => {
+        if (isMounted) {
+          setPosts(data.posts);
+          setNextCursor(data.nextCursor);
+          setHasMore(data.hasMore);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          setError(err.response?.data?.message || 'Failed to load feed');
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
+      });
+
+    return () => { isMounted = false; };
+  }, []);
 
   // Load more posts
   const loadMore = async () => {

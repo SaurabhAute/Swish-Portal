@@ -12,10 +12,16 @@ const createPost = async (req, res) => {
       return res.status(400).json({ message: 'Image is required. Please upload an image file.' });
     }
 
-    const caption = req.body.caption ? req.body.caption.trim().slice(0, 500) : '';
+    let caption = '';
+    if (req.body.caption) {
+      caption = req.body.caption.trim();
+      if (caption.length > 500) {
+        return res.status(400).json({ message: 'Caption cannot exceed 500 characters' });
+      }
+    }
 
     const post = await Post.create({
-      authorId: req.user._id,
+      authorId: req.user._id || req.user.id,
       imageUrl: req.file.path,
       imagePublicId: req.file.filename,
       caption,
@@ -148,7 +154,8 @@ const deletePost = async (req, res) => {
     }
 
     // Only the author can delete their own post
-    if (post.authorId.toString() !== req.user._id.toString()) {
+    const currentUserId = req.user._id ? req.user._id.toString() : req.user.id.toString();
+    if (post.authorId.toString() !== currentUserId) {
       return res.status(403).json({ message: 'You can only delete your own posts' });
     }
 
@@ -175,13 +182,14 @@ const deletePost = async (req, res) => {
  */
 function formatPost(post) {
   const author = post.authorId;
-  const authorSummary = author
+  const isPopulated = author && typeof author === 'object' && author._id;
+  const authorSummary = isPopulated
     ? {
         id: author._id,
         name: `${author.profile?.firstName || ''} ${author.profile?.lastName || ''}`.trim() || author.email?.split('@')[0] || 'Unknown',
         profilePhotoUrl: author.profile?.avatar || '',
       }
-    : { id: null, name: 'Unknown', profilePhotoUrl: '' };
+    : { id: author || null, name: 'Unknown', profilePhotoUrl: '' };
 
   return {
     _id: post._id,

@@ -1,7 +1,8 @@
+const mongoose = require('mongoose');
 const User = require('../models/User');
 
 // @desc    Get current user profile
-// @route   GET /api/users/profile
+// @route   GET /api/users/profile, GET /api/users/me
 // @access  Private
 const getUserProfile = async (req, res) => {
   try {
@@ -17,7 +18,7 @@ const getUserProfile = async (req, res) => {
 };
 
 // @desc    Update current user profile (bio, photo, basic info) - FR-02
-// @route   PUT /api/users/profile
+// @route   PUT /api/users/profile, PUT /api/users/me
 // @access  Private
 const updateUserProfile = async (req, res) => {
   try {
@@ -31,6 +32,21 @@ const updateUserProfile = async (req, res) => {
     // Validate bio length
     if (bio && bio.length > 500) {
       return res.status(400).json({ message: 'Bio cannot exceed 500 characters' });
+    }
+
+    // Avatar validation (NFR-03)
+    if (avatar) {
+      if (avatar.startsWith('data:image/')) {
+        const matches = avatar.match(/^data:image\/(jpeg|png|webp|gif);base64,/);
+        if (!matches) {
+          return res.status(400).json({ message: 'Only JPEG, PNG, WebP, and GIF images are allowed' });
+        }
+        if (avatar.length > 3 * 1024 * 1024) {
+          return res.status(400).json({ message: 'Image size should be under 2MB' });
+        }
+      } else if (!avatar.startsWith('http://') && !avatar.startsWith('https://')) {
+        return res.status(400).json({ message: 'Invalid photo URL format' });
+      }
     }
 
     // Update profile fields if provided
@@ -90,14 +106,28 @@ const deleteUserProfile = async (req, res) => {
 // @access  Private (or Public)
 const getUserById = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
+
     const user = await User.findById(req.params.id).select('-resetPasswordToken -resetPasswordExpire');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    const isOwn = req.user && req.user._id && req.user._id.toString() === user._id.toString();
+    const userObj = user.toJSON();
+
+    if (!isOwn) {
+      delete userObj.email;
+      if (userObj.profile) {
+        delete userObj.profile.phone;
+      }
+    }
+
     res.status(200).json({
       success: true,
-      user,
+      user: userObj,
     });
   } catch (error) {
     console.error('getUserById error:', error.message);
