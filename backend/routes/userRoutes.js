@@ -18,6 +18,10 @@ router.get('/profile', getUserProfile);
 router.put('/profile', updateUserProfile);
 router.delete('/profile', deleteUserProfile);
 
+// Convenience aliases for Person 2 / SRS requirements
+router.get('/me', getUserProfile);
+router.put('/me', updateUserProfile);
+
 // Password change endpoint
 router.put('/change-password', changePassword);
 

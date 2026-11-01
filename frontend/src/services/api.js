@@ -81,4 +81,55 @@ export const userService = {
   },
 };
 
+// ── Posts Service (FR-03, FR-04) ─────────────────────────────
+export const postService = {
+  /**
+   * Create a new post with an image and optional caption.
+   * @param {File} imageFile - The image file to upload
+   * @param {string} caption - Optional caption text
+   * @returns {Promise<object>} - { message, post }
+   */
+  createPost: async (imageFile, caption = '') => {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    formData.append('caption', caption);
+
+    const response = await api.post('/posts', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  /**
+   * Fetch the campus feed (newest first, cursor-based pagination).
+   * @param {{ limit?: number, cursor?: string }} params
+   * @returns {Promise<{ posts: object[], nextCursor: string|null, hasMore: boolean }>}
+   */
+  getFeed: async (params = {}) => {
+    const response = await api.get('/posts', { params });
+    return response.data;
+  },
+
+  /**
+   * Fetch posts by a specific user.
+   * @param {string} userId
+   * @param {{ limit?: number, cursor?: string }} params
+   * @returns {Promise<{ posts: object[], nextCursor: string|null, hasMore: boolean }>}
+   */
+  getUserPosts: async (userId, params = {}) => {
+    const response = await api.get(`/posts/user/${userId}`, { params });
+    return response.data;
+  },
+
+  /**
+   * Delete the current user's own post.
+   * @param {string} postId
+   * @returns {Promise<{ message: string }>}
+   */
+  deletePost: async (postId) => {
+    const response = await api.delete(`/posts/${postId}`);
+    return response.data;
+  },
+};
+
 export default api;
