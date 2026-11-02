@@ -8,7 +8,7 @@
     "dev": "nodemon server.js",
     "test": "node tests/week2_person1.test.js",
     "test:posts": "node tests/week2_person2.test.js",
-    "test:engagement": "node tests/engagement.test.js"
+    "test:engagement": "node tests/engagement.test.js && node tests/e2e_walkthrough.test.js"
   },
   "keywords": [],
   "author": "",

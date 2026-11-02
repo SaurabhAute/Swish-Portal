@@ -134,7 +134,11 @@ const deleteComment = async (req, res) => {
 
     // Only the author can delete their comment
     const currentUserId = req.user._id ? req.user._id.toString() : req.user.id.toString();
-    if (comment.authorId.toString() !== currentUserId) {
+    const commentAuthorId = (comment.authorId && comment.authorId._id)
+      ? comment.authorId._id.toString()
+      : (comment.authorId ? comment.authorId.toString() : '');
+
+    if (commentAuthorId !== currentUserId) {
       return res.status(403).json({ message: 'You can only delete your own comments' });
     }
 
