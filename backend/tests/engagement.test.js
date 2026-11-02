@@ -2,8 +2,12 @@ const assert = require('assert');
 const mongoose = require('mongoose');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
+const User = require('../models/User');
+const Follow = require('../models/Follow');
 const { toggleLike, getFeed, getUserPosts } = require('../controllers/postController');
 const { addComment, getComments, deleteComment } = require('../controllers/commentController');
+const { followUser, unfollowUser, getFollowers, getFollowing } = require('../controllers/followController');
+const { getUserProfile, getUserById } = require('../controllers/userController');
 const postRoutes = require('../routes/postRoutes');
 
 // Helper to simulate router request dispatch without network sockets
@@ -638,6 +642,292 @@ async function runTests() {
       Comment.findById = originalFindById;
       Comment.findByIdAndDelete = originalFindByIdAndDelete;
       Post.findOneAndUpdate = originalPostFindOneAndUpdate;
+    }
+  });
+
+  console.log('\n--- 3. Follow Slice Tests (FR-07, AC-05) ---');
+
+  // Test 16: Follow schema contains unique compound index
+  test('Follow schema contains followerId, followingId, and unique compound index', () => {
+    const paths = Follow.schema.paths;
+    assert.ok(paths.followerId, 'Follow schema must have followerId');
+    assert.ok(paths.followingId, 'Follow schema must have followingId');
+    assert.ok(paths.createdAt, 'Follow schema must have createdAt');
+
+    const indexes = Follow.schema.indexes();
+    const hasUniqueCompound = indexes.some(
+      ([idx, opts]) => idx.followerId === 1 && idx.followingId === 1 && opts.unique === true
+    );
+    assert.ok(hasUniqueCompound, 'Follow schema must define unique compound index on (followerId, followingId)');
+  });
+
+  // Test 17: User cannot follow themselves (400)
+  await testAsync('POST /api/users/:id/follow returns 400 when attempting to follow self', async () => {
+    const userId = new mongoose.Types.ObjectId();
+    const req = {
+      params: { id: userId.toString() },
+      user: { _id: userId, id: userId.toString() },
+    };
+    let status = 0;
+    let body = null;
+    const res = { status(c) { status = c; return this; }, json(d) { body = d; return this; } };
+
+    await followUser(req, res);
+    assert.strictEqual(status, 400);
+    assert.strictEqual(body.message, 'You cannot follow yourself');
+  });
+
+  // Test 18: Target user does not exist returns 404
+  await testAsync('POST /api/users/:id/follow returns 404 for non-existent user', async () => {
+    const currentUserId = new mongoose.Types.ObjectId();
+    const targetUserId = new mongoose.Types.ObjectId();
+
+    const originalFindById = User.findById;
+    User.findById = async () => null;
+
+    try {
+      const req = {
+        params: { id: targetUserId.toString() },
+        user: { _id: currentUserId, id: currentUserId.toString() },
+      };
+      let status = 0;
+      let body = null;
+      const res = { status(c) { status = c; return this; }, json(d) { body = d; return this; } };
+
+      await followUser(req, res);
+      assert.strictEqual(status, 404);
+      assert.strictEqual(body.message, 'User not found');
+    } finally {
+      User.findById = originalFindById;
+    }
+  });
+
+  // Test 19: Invalid ObjectId returns 400
+  await testAsync('POST /api/users/:id/follow returns 400 for invalid ObjectId', async () => {
+    const req = {
+      params: { id: 'invalid-id' },
+      user: { _id: new mongoose.Types.ObjectId() },
+    };
+    let status = 0;
+    let body = null;
+    const res = { status(c) { status = c; return this; }, json(d) { body = d; return this; } };
+
+    await followUser(req, res);
+    assert.strictEqual(status, 400);
+    assert.strictEqual(body.message, 'Invalid user ID');
+  });
+
+  // Test 20: Following twice is harmless and idempotent
+  await testAsync('POST /api/users/:id/follow is idempotent (following twice does not error or corrupt)', async () => {
+    const currentUserId = new mongoose.Types.ObjectId();
+    const targetUserId = new mongoose.Types.ObjectId();
+
+    const originalUserFindById = User.findById;
+    const originalFollowCreate = Follow.create;
+    const originalCount = Follow.countDocuments;
+
+    User.findById = async () => ({ _id: targetUserId });
+
+    let createCalls = 0;
+    Follow.create = async () => {
+      createCalls++;
+      if (createCalls > 1) {
+        // Simulate duplicate key error
+        const dupErr = new Error('E11000 duplicate key error collection');
+        dupErr.code = 11000;
+        throw dupErr;
+      }
+      return { followerId: currentUserId, followingId: targetUserId };
+    };
+
+    Follow.countDocuments = async (q) => {
+      return 1; // Count stays 1
+    };
+
+    try {
+      const req = {
+        params: { id: targetUserId.toString() },
+        user: { _id: currentUserId, id: currentUserId.toString() },
+      };
+      let status = 0;
+      let body = null;
+      const res = { status(c) { status = c; return this; }, json(d) { body = d; return this; } };
+
+      // First follow
+      await followUser(req, res);
+      assert.strictEqual(status, 200);
+      assert.strictEqual(body.isFollowing, true);
+
+      // Second follow (idempotent duplicate)
+      await followUser(req, res);
+      assert.strictEqual(status, 200);
+      assert.strictEqual(body.isFollowing, true);
+      assert.strictEqual(body.followersCount, 1);
+    } finally {
+      User.findById = originalUserFindById;
+      Follow.create = originalFollowCreate;
+      Follow.countDocuments = originalCount;
+    }
+  });
+
+  // Test 21: Unfollow when not following is harmless and idempotent
+  await testAsync('DELETE /api/users/:id/follow is idempotent (unfollowing when not following is harmless)', async () => {
+    const currentUserId = new mongoose.Types.ObjectId();
+    const targetUserId = new mongoose.Types.ObjectId();
+
+    const originalUserFindById = User.findById;
+    const originalFollowFindOneAndDelete = Follow.findOneAndDelete;
+    const originalCount = Follow.countDocuments;
+
+    User.findById = async () => ({ _id: targetUserId });
+    Follow.findOneAndDelete = async () => null; // Nothing to delete
+    Follow.countDocuments = async () => 0;
+
+    try {
+      const req = {
+        params: { id: targetUserId.toString() },
+        user: { _id: currentUserId, id: currentUserId.toString() },
+      };
+      let status = 0;
+      let body = null;
+      const res = { status(c) { status = c; return this; }, json(d) { body = d; return this; } };
+
+      await unfollowUser(req, res);
+      assert.strictEqual(status, 200);
+      assert.strictEqual(body.isFollowing, false);
+      assert.strictEqual(body.followersCount, 0);
+    } finally {
+      User.findById = originalUserFindById;
+      Follow.findOneAndDelete = originalFollowFindOneAndDelete;
+      Follow.countDocuments = originalCount;
+    }
+  });
+
+  // Test 22: AC-05 - Following relationship reflected on both profiles
+  await testAsync('AC-05: Following relationship reflected on both profiles (followersCount, followingCount, isFollowing)', async () => {
+    const userA = new mongoose.Types.ObjectId(); // follower
+    const userB = new mongoose.Types.ObjectId(); // followed
+
+    // User A follows User B
+    const originalUserFindById = User.findById;
+    const originalFollowCount = Follow.countDocuments;
+    const originalFollowFindOne = Follow.findOne;
+
+    User.findById = (id) => {
+      const isA = id.toString() === userA.toString();
+      const mockDoc = {
+        _id: isA ? userA : userB,
+        email: isA ? 'a@campus.edu' : 'b@campus.edu',
+        role: 'user',
+        profile: { firstName: isA ? 'User' : 'Target', lastName: isA ? 'A' : 'B' },
+        toJSON() { return { _id: this._id, email: this.email, role: this.role, profile: { ...this.profile } }; },
+      };
+      return {
+        select: async () => mockDoc,
+        then: (resolve) => Promise.resolve(mockDoc).then(resolve),
+      };
+    };
+
+    // Follow relations: A follows B
+    Follow.countDocuments = async (query) => {
+      if (query.followingId && query.followingId.toString() === userB.toString()) return 1; // B has 1 follower
+      if (query.followerId && query.followerId.toString() === userA.toString()) return 1; // A follows 1 user
+      return 0;
+    };
+
+    Follow.findOne = async (query) => {
+      if (query.followerId.toString() === userA.toString() && query.followingId.toString() === userB.toString()) {
+        return { followerId: userA, followingId: userB };
+      }
+      return null;
+    };
+
+    try {
+      // 1. User A checks own profile
+      const reqOwn = { user: { _id: userA, id: userA.toString() } };
+      let ownBody = null;
+      const resOwn = { status() { return this; }, json(d) { ownBody = d; return this; } };
+      await getUserProfile(reqOwn, resOwn);
+
+      assert.strictEqual(ownBody.user.followingCount, 1, 'User A followingCount should be 1');
+      assert.strictEqual(ownBody.user.followersCount, 0, 'User A followersCount should be 0');
+
+      // 2. User A views User B's profile
+      const reqPublic = {
+        params: { id: userB.toString() },
+        user: { _id: userA, id: userA.toString() },
+      };
+      let publicBody = null;
+      const resPublic = { status() { return this; }, json(d) { publicBody = d; return this; } };
+      await getUserById(reqPublic, resPublic);
+
+      assert.strictEqual(publicBody.user.followersCount, 1, 'User B followersCount should be 1');
+      assert.strictEqual(publicBody.user.isFollowing, true, 'User A viewing User B should show isFollowing=true');
+    } finally {
+      User.findById = originalUserFindById;
+      Follow.countDocuments = originalFollowCount;
+      Follow.findOne = originalFollowFindOne;
+    }
+  });
+
+  // Test 23: GET /api/users/:id/followers and following return sanitized user summaries
+  await testAsync('GET followers and following return paginated user summaries without emails or passwords', async () => {
+    const targetUserId = new mongoose.Types.ObjectId();
+    const followerUserId = new mongoose.Types.ObjectId();
+
+    const originalUserFindById = User.findById;
+    const originalFollowFind = Follow.find;
+    const originalFollowCount = Follow.countDocuments;
+
+    User.findById = async () => ({ _id: targetUserId });
+
+    const sampleFollow = {
+      _id: new mongoose.Types.ObjectId(),
+      followerId: {
+        _id: followerUserId,
+        email: 'secret@campus.edu',
+        passwordHash: 'secret_hash',
+        role: 'user',
+        profile: { firstName: 'Sam', lastName: 'Student', avatar: 'https://avatar.png' },
+      },
+      followingId: targetUserId,
+      createdAt: new Date(),
+    };
+
+    Follow.find = () => ({
+      sort: () => ({
+        skip: () => ({
+          limit: () => ({
+            populate: () => Promise.resolve([sampleFollow]),
+          }),
+        }),
+      }),
+    });
+    Follow.countDocuments = async () => 1;
+
+    try {
+      const req = {
+        params: { id: targetUserId.toString() },
+        query: { limit: '10', page: '1' },
+        user: { _id: new mongoose.Types.ObjectId() },
+      };
+      let status = 0;
+      let body = null;
+      const res = { status(c) { status = c; return this; }, json(d) { body = d; return this; } };
+
+      await getFollowers(req, res);
+      assert.strictEqual(status, 200);
+      assert.strictEqual(body.users.length, 1);
+      const followerSummary = body.users[0];
+      assert.strictEqual(followerSummary.name, 'Sam Student');
+      assert.strictEqual(followerSummary.profilePhotoUrl, 'https://avatar.png');
+      assert.strictEqual(followerSummary.role, 'user');
+      assert.strictEqual(followerSummary.email, undefined, 'Followers list must NOT expose emails');
+      assert.strictEqual(followerSummary.passwordHash, undefined, 'Followers list must NOT expose passwords');
+    } finally {
+      User.findById = originalUserFindById;
+      Follow.find = originalFollowFind;
+      Follow.countDocuments = originalFollowCount;
     }
   });
 

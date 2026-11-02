@@ -1,7 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { userService, postService } from '../services/api';
+import {
+  userService,
+  postService,
+  followUser,
+  unfollowUser,
+  getFollowers,
+  getFollowing,
+} from '../services/api';
 import PostCard from '../components/PostCard';
 
 const Profile = () => {
@@ -56,6 +63,27 @@ const Profile = () => {
   const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
+  // Follow state for other user (Person 3 - FR-07, AC-05)
+  const [otherIsFollowing, setOtherIsFollowing] = useState(false);
+  const [otherFollowersCount, setOtherFollowersCount] = useState(0);
+  const [otherFollowingCount, setOtherFollowingCount] = useState(0);
+  const [followLoading, setFollowLoading] = useState(false);
+  const [followError, setFollowError] = useState('');
+
+  // Follow counts for own profile
+  const [ownFollowersCount, setOwnFollowersCount] = useState(user?.followersCount || 0);
+  const [ownFollowingCount, setOwnFollowingCount] = useState(user?.followingCount || 0);
+
+  // Follow list modal state
+  const [followModal, setFollowModal] = useState({
+    isOpen: false,
+    type: 'followers',
+    title: '',
+    users: [],
+    loading: false,
+    error: '',
+  });
+
   // Load other user's profile and posts if viewing someone else
   useEffect(() => {
     if (!isOtherUser || !id) return;
@@ -70,6 +98,9 @@ const Profile = () => {
         if (isMounted) {
           setOtherUser(userData.user);
           setOtherUserPosts(postsData.posts || []);
+          setOtherIsFollowing(Boolean(userData.user?.isFollowing));
+          setOtherFollowersCount(userData.user?.followersCount || 0);
+          setOtherFollowingCount(userData.user?.followingCount || 0);
         }
       } catch (err) {
         if (isMounted) {
@@ -85,6 +116,113 @@ const Profile = () => {
     fetchOtherProfile();
     return () => { isMounted = false; };
   }, [id, isOtherUser]);
+
+  // Refresh own profile counts on mount
+  useEffect(() => {
+    if (isOtherUser) return;
+    let isMounted = true;
+    userService.getProfile()
+      .then((data) => {
+        if (isMounted && data.user) {
+          setOwnFollowersCount(data.user.followersCount || 0);
+          setOwnFollowingCount(data.user.followingCount || 0);
+          updateUser(data.user);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to refresh own counts:', err);
+      });
+    return () => { isMounted = false; };
+  }, [isOtherUser, updateUser]);
+
+  const handleToggleFollow = async () => {
+    if (followLoading || !id) return;
+    setFollowLoading(true);
+    setFollowError('');
+
+    const prevFollowing = otherIsFollowing;
+    const prevCount = otherFollowersCount;
+
+    const nextFollowing = !otherIsFollowing;
+    const nextCount = nextFollowing ? otherFollowersCount + 1 : Math.max(0, otherFollowersCount - 1);
+
+    setOtherIsFollowing(nextFollowing);
+    setOtherFollowersCount(nextCount);
+
+    try {
+      if (nextFollowing) {
+        const res = await followUser(id);
+        if (res && typeof res.followersCount === 'number') {
+          setOtherFollowersCount(res.followersCount);
+        }
+      } else {
+        const res = await unfollowUser(id);
+        if (res && typeof res.followersCount === 'number') {
+          setOtherFollowersCount(res.followersCount);
+        }
+      }
+    } catch (err) {
+      setOtherIsFollowing(prevFollowing);
+      setOtherFollowersCount(prevCount);
+      setFollowError(err.response?.data?.message || 'Failed to update follow');
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
+  const openFollowModal = async (type, targetUserId, displayName) => {
+    const title = type === 'followers'
+      ? `${displayName ? displayName + '’s' : ''} Followers`
+      : `${displayName ? displayName + '’s' : ''} Following`;
+
+    setFollowModal({
+      isOpen: true,
+      type,
+      title,
+      users: [],
+      loading: true,
+      error: '',
+    });
+
+    try {
+      const res = type === 'followers'
+        ? await getFollowers(targetUserId)
+        : await getFollowing(targetUserId);
+
+      setFollowModal((prev) => ({
+        ...prev,
+        users: res.users || [],
+        loading: false,
+      }));
+    } catch (err) {
+      setFollowModal((prev) => ({
+        ...prev,
+        loading: false,
+        error: err.response?.data?.message || `Failed to load ${type}`,
+      }));
+    }
+  };
+
+  const closeFollowModal = () => {
+    setFollowModal({
+      isOpen: false,
+      type: 'followers',
+      title: '',
+      users: [],
+      loading: false,
+      error: '',
+    });
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && followModal.isOpen) {
+        closeFollowModal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [followModal.isOpen]);
 
   // Load own posts when 'posts' tab is selected
   useEffect(() => {
@@ -309,10 +447,40 @@ const Profile = () => {
                       <span className={`role-badge role-badge-${otherUser?.role || 'user'}`}>
                         {otherUser?.role?.toUpperCase()}
                       </span>
+                      <button
+                        type="button"
+                        onClick={handleToggleFollow}
+                        disabled={followLoading}
+                        className={`btn-follow ${otherIsFollowing ? 'btn-following' : 'btn-follow-cta'}`}
+                        aria-label={otherIsFollowing ? 'Unfollow this user' : 'Follow this user'}
+                      >
+                        {followLoading ? '…' : otherIsFollowing ? 'Following' : '+ Follow'}
+                      </button>
                     </div>
+                    {followError && (
+                      <div className="follow-error-banner" role="alert">
+                        <span>⚠️ {followError}</span>
+                      </div>
+                    )}
                     {otherUser?.profile?.bio && <p className="hero-bio">“{otherUser.profile.bio}”</p>}
 
                     <div className="hero-meta-row">
+                      <button
+                        type="button"
+                        className="meta-tag meta-tag-clickable"
+                        onClick={() => openFollowModal('followers', id, otherUser?.profile?.firstName || 'User')}
+                        aria-label={`View ${otherFollowersCount} followers`}
+                      >
+                        👥 {otherFollowersCount} {otherFollowersCount === 1 ? 'Follower' : 'Followers'}
+                      </button>
+                      <button
+                        type="button"
+                        className="meta-tag meta-tag-clickable"
+                        onClick={() => openFollowModal('following', id, otherUser?.profile?.firstName || 'User')}
+                        aria-label={`View ${otherFollowingCount} following`}
+                      >
+                        🔗 {otherFollowingCount} Following
+                      </button>
                       <span className="meta-tag">
                         📅 Joined {formatJoined(otherUser?.createdAt)}
                       </span>
@@ -377,6 +545,22 @@ const Profile = () => {
                 {formData.bio && <p className="hero-bio">“{formData.bio}”</p>}
 
                 <div className="hero-meta-row">
+                  <button
+                    type="button"
+                    className="meta-tag meta-tag-clickable"
+                    onClick={() => openFollowModal('followers', currentUserId, 'My')}
+                    aria-label={`View my ${ownFollowersCount} followers`}
+                  >
+                    👥 {ownFollowersCount} {ownFollowersCount === 1 ? 'Follower' : 'Followers'}
+                  </button>
+                  <button
+                    type="button"
+                    className="meta-tag meta-tag-clickable"
+                    onClick={() => openFollowModal('following', currentUserId, 'My')}
+                    aria-label={`View my ${ownFollowingCount} following`}
+                  >
+                    🔗 {ownFollowingCount} Following
+                  </button>
                   {formData.phone && (
                     <span className="meta-tag">
                       📞 {formData.phone}
@@ -776,6 +960,83 @@ const Profile = () => {
               >
                 {deleteLoading ? 'Deleting...' : 'Yes, Delete My Account'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Follow List Modal (Person 3 - FR-07) ── */}
+      {followModal.isOpen && (
+        <div
+          className="modal-backdrop"
+          onClick={closeFollowModal}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="follow-modal-title"
+        >
+          <div className="modal-dialog follow-modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="follow-modal-header">
+              <h3 id="follow-modal-title">{followModal.title}</h3>
+              <button
+                type="button"
+                onClick={closeFollowModal}
+                className="btn-modal-close"
+                aria-label="Close dialog"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="follow-modal-body">
+              {followModal.loading ? (
+                <div className="follow-modal-loading" role="status">
+                  <svg className="spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-purple)" strokeWidth="2.5" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" strokeDasharray="31.4 31.4" strokeLinecap="round" />
+                  </svg>
+                  <span>Loading…</span>
+                </div>
+              ) : followModal.error ? (
+                <div className="follow-modal-error" role="alert">
+                  <p>⚠️ {followModal.error}</p>
+                </div>
+              ) : followModal.users.length === 0 ? (
+                <div className="follow-modal-empty">
+                  <p>No users to display yet.</p>
+                </div>
+              ) : (
+                <div className="follow-users-list">
+                  {followModal.users.map((item) => {
+                    const initials = item.name
+                      .split(' ')
+                      .map((w) => w.charAt(0))
+                      .join('')
+                      .toUpperCase()
+                      .slice(0, 2) || '?';
+
+                    return (
+                      <Link
+                        key={item.id}
+                        to={`/profile/${item.id}`}
+                        onClick={closeFollowModal}
+                        className="follow-user-item"
+                        aria-label={`View ${item.name}'s profile`}
+                      >
+                        {item.profilePhotoUrl ? (
+                          <img src={item.profilePhotoUrl} alt="" className="follow-avatar-img" />
+                        ) : (
+                          <div className="follow-avatar-fallback">{initials}</div>
+                        )}
+                        <div className="follow-user-meta">
+                          <span className="follow-user-name">{item.name}</span>
+                          <span className={`role-badge role-badge-${item.role || 'user'}`}>
+                            {item.role || 'user'}
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

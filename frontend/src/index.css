@@ -963,11 +963,215 @@ body {
   border-radius: 6px;
   border: 1px solid var(--border);
   transition: border-color 0.2s ease, background 0.2s ease;
+  font-family: inherit;
 }
 
 .meta-tag:hover {
   border-color: rgba(255, 255, 255, 0.15);
   background: rgba(255, 255, 255, 0.07);
+}
+
+.meta-tag-clickable {
+  cursor: pointer;
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.25);
+  color: var(--text-primary);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.meta-tag-clickable:hover {
+  background: rgba(139, 92, 246, 0.18);
+  border-color: var(--accent-purple);
+  color: #fff;
+}
+
+.meta-tag-clickable:focus-visible {
+  outline: 2px solid var(--accent-purple);
+  outline-offset: 2px;
+}
+
+/* ── Follow Button (FR-07, AC-05) ────────────────────────── */
+.btn-follow {
+  padding: 0.35rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 0.75rem;
+}
+
+.btn-follow:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-follow-cta {
+  background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-blue) 100%);
+  color: #fff;
+  border: 1px solid transparent;
+}
+
+.btn-follow-cta:hover:not(:disabled) {
+  opacity: 0.92;
+  box-shadow: 0 2px 10px var(--glow-purple);
+}
+
+.btn-following {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.btn-following:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.15);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: var(--error);
+}
+
+.follow-error-banner {
+  margin-top: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  color: var(--error);
+  font-size: 0.78rem;
+  animation: bannerSlideDown 0.2s ease;
+}
+
+/* ── Follow List Modal (FR-07) ───────────────────────────── */
+.follow-modal-dialog {
+  max-width: 440px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.follow-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.15rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.follow-modal-header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.btn-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  line-height: 1;
+}
+
+.btn-modal-close:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.follow-modal-body {
+  padding: 1rem 1.25rem 1.5rem;
+  overflow-y: auto;
+  max-height: calc(80vh - 70px);
+}
+
+.follow-modal-loading,
+.follow-modal-empty,
+.follow-modal-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem 0;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.follow-modal-error {
+  color: var(--error);
+}
+
+.follow-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.follow-user-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.follow-user-item:hover {
+  background: rgba(139, 92, 246, 0.08);
+  border-color: var(--border-focus);
+  transform: translateX(2px);
+}
+
+.follow-user-item:focus-visible {
+  outline: 2px solid var(--accent-purple);
+  outline-offset: 2px;
+}
+
+.follow-avatar-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.follow-avatar-fallback {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-blue) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.follow-user-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.follow-user-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 /* ── Profile Tabs ─────────────────────────────────────────── */

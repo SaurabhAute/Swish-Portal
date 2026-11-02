@@ -17,16 +17,16 @@
   - [x] 2.6 Frontend: Add `getComments`, `addComment`, `deleteComment` in `src/services/api.js`
   - [x] 2.7 Frontend: Expandable comment section in `PostCard.jsx` (load comments, empty/loading/error-with-retry, 300 char counter, instant add, delete with confirm)
   - [x] 2.8 Commit Comments slice (`feat(comments): ...`)
-- [ ] Step 3: Follow System
-  - [ ] 3.1 Backend: Create `Follow` model (`followerId`, `followingId`, `createdAt` with unique compound index)
-  - [ ] 3.2 Backend: Implement idempotent `POST /api/users/:id/follow` and `DELETE /api/users/:id/follow` (prevent self-follow with 400, 404 for missing user)
-  - [ ] 3.3 Backend: Implement `GET /api/users/:id/followers` and `GET /api/users/:id/following` (paginated user summaries, no sensitive fields)
-  - [ ] 3.4 Backend: Extend `getUserById` and `getUserProfile` with `followersCount`, `followingCount`, and `isFollowing`
-  - [ ] 3.5 Backend: Follow system tests (idempotency, self-follow guard, counts, pagination)
-  - [ ] 3.6 Frontend: Add `followUser`, `unfollowUser`, `getFollowers`, `getFollowing` in `src/services/api.js`
-  - [ ] 3.7 Frontend: Follow/Following button on `/profile/:id` (hidden on own profile, loading/error states, immediate count update)
-  - [ ] 3.8 Frontend: Followers and Following count display on both own profile and `/profile/:id`, clickable to open modal/panel list
-  - [ ] 3.9 Commit Follow slice (`feat(follow): ...`)
+- [x] Step 3: Follow System
+  - [x] 3.1 Backend: Create `Follow` model (`followerId`, `followingId`, `createdAt` with unique compound index)
+  - [x] 3.2 Backend: Implement idempotent `POST /api/users/:id/follow` and `DELETE /api/users/:id/follow` (prevent self-follow with 400, 404 for missing user)
+  - [x] 3.3 Backend: Implement `GET /api/users/:id/followers` and `GET /api/users/:id/following` (paginated user summaries, no sensitive fields)
+  - [x] 3.4 Backend: Extend `getUserById` and `getUserProfile` with `followersCount`, `followingCount`, and `isFollowing`
+  - [x] 3.5 Backend: Follow system tests (idempotency, self-follow guard, counts, pagination)
+  - [x] 3.6 Frontend: Add `followUser`, `unfollowUser`, `getFollowers`, `getFollowing` in `src/services/api.js`
+  - [x] 3.7 Frontend: Follow/Following button on `/profile/:id` (hidden on own profile, loading/error states, immediate count update)
+  - [x] 3.8 Frontend: Followers and Following count display on both own profile and `/profile/:id`, clickable to open modal/panel list
+  - [x] 3.9 Commit Follow slice (`feat(follow): ...`)
 - [ ] Step 4: Cross-checks & Verification
   - [ ] 4.1 Verify feed and profile post lists show accurate likes, comments, and counts
   - [ ] 4.2 Run all backend tests (existing + new)
