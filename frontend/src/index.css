@@ -1608,10 +1608,76 @@ body {
 /* ── Engagement Row ──────────────────────────────────────────── */
 .post-engagement-row {
   display: flex;
+  align-items: center;
   gap: 1rem;
-  padding: 0.5rem 1.15rem 1rem;
+  padding: 0.65rem 1.15rem 0.85rem;
   font-size: 0.8rem;
   color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  position: relative;
+}
+
+.btn-like {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-like:hover:not(:disabled) {
+  background: rgba(236, 72, 153, 0.1);
+  color: var(--accent-pink);
+}
+
+.btn-like:focus-visible {
+  outline: 2px solid var(--accent-pink);
+  outline-offset: 2px;
+}
+
+.btn-like:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-like-active {
+  color: var(--accent-pink);
+}
+
+.like-heart-icon {
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), fill 0.2s ease;
+  flex-shrink: 0;
+}
+
+.btn-like:hover:not(:disabled) .like-heart-icon {
+  transform: scale(1.15);
+}
+
+.btn-like-active .like-heart-icon {
+  transform: scale(1.08);
+}
+
+.like-error-tooltip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 1.15rem;
+  background: rgba(220, 38, 38, 0.95);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  animation: bannerSlideDown 0.2s ease;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .post-like-count,

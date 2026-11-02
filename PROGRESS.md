@@ -1,0 +1,41 @@
+# Progress Checklist — Person 3 (Engagement Slice)
+
+- [x] Step 0: Orientation, setup `feature/engagement` branch, verify existing tests and builds
+- [x] Step 1: Likes
+  - [x] 1.1 Backend: Implement atomic `POST /api/posts/:id/like` endpoint with `$addToSet`/`$pull`
+  - [x] 1.2 Backend: Extend post format with `likeCount` and `likedByMe`, omit raw liker IDs
+  - [x] 1.3 Backend: Likes unit & integration tests (toggle on/off, concurrency safety, removed posts, 400/404)
+  - [x] 1.4 Frontend: Add `toggleLike` in `src/services/api.js`
+  - [x] 1.5 Frontend: Interactive like button in `PostCard.jsx` with heart icon, aria attributes, optimistic update + rollback, in-flight disabled state
+  - [x] 1.6 Commit Likes slice (`feat(likes): ...`)
+- [ ] Step 2: Comments
+  - [ ] 2.1 Backend: Create `Comment` model (`postId`, `authorId`, `text`, `isRemoved`, `createdAt` with indexes)
+  - [ ] 2.2 Backend: Implement `POST /api/posts/:postId/comments` with validation (1-300 chars trimmed) & atomic `commentCount` increment
+  - [ ] 2.3 Backend: Implement `GET /api/posts/:postId/comments` (paginated, oldest first, exclude `isRemoved`, author summary, `hasMore`/`nextCursor`)
+  - [ ] 2.4 Backend: Implement `DELETE /api/comments/:id` (author-only 403 guard, atomic `commentCount` decrement)
+  - [ ] 2.5 Backend: Comments unit & integration tests (validation, auth, author-only delete, missing/removed posts)
+  - [ ] 2.6 Frontend: Add `getComments`, `addComment`, `deleteComment` in `src/services/api.js`
+  - [ ] 2.7 Frontend: Expandable comment section in `PostCard.jsx` (load comments, empty/loading/error-with-retry, 300 char counter, instant add, delete with confirm)
+  - [ ] 2.8 Commit Comments slice (`feat(comments): ...`)
+- [ ] Step 3: Follow System
+  - [ ] 3.1 Backend: Create `Follow` model (`followerId`, `followingId`, `createdAt` with unique compound index)
+  - [ ] 3.2 Backend: Implement idempotent `POST /api/users/:id/follow` and `DELETE /api/users/:id/follow` (prevent self-follow with 400, 404 for missing user)
+  - [ ] 3.3 Backend: Implement `GET /api/users/:id/followers` and `GET /api/users/:id/following` (paginated user summaries, no sensitive fields)
+  - [ ] 3.4 Backend: Extend `getUserById` and `getUserProfile` with `followersCount`, `followingCount`, and `isFollowing`
+  - [ ] 3.5 Backend: Follow system tests (idempotency, self-follow guard, counts, pagination)
+  - [ ] 3.6 Frontend: Add `followUser`, `unfollowUser`, `getFollowers`, `getFollowing` in `src/services/api.js`
+  - [ ] 3.7 Frontend: Follow/Following button on `/profile/:id` (hidden on own profile, loading/error states, immediate count update)
+  - [ ] 3.8 Frontend: Followers and Following count display on both own profile and `/profile/:id`, clickable to open modal/panel list
+  - [ ] 3.9 Commit Follow slice (`feat(follow): ...`)
+- [ ] Step 4: Cross-checks & Verification
+  - [ ] 4.1 Verify feed and profile post lists show accurate likes, comments, and counts
+  - [ ] 4.2 Run all backend tests (existing + new)
+  - [ ] 4.3 Run frontend lint and build
+  - [ ] 4.4 End-to-end walkthrough verification
+- [ ] Step 5: Documentation
+  - [ ] 5.1 Append Engagement section to `README.md`
+  - [ ] 5.2 Append Engagement section to `HANDOFF.md`
+- [ ] Step 6: Cleanup & PR Preparation
+  - [ ] 6.1 Check git diff for secrets / unnecessary files
+  - [ ] 6.2 Delete `PROGRESS.md`
+  - [ ] 6.3 Final commit and PR summary

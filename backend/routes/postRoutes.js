@@ -5,6 +5,7 @@ const {
   getFeed,
   getUserPosts,
   deletePost,
+  toggleLike,
 } = require('../controllers/postController');
 const verifyToken = require('../middleware/verifyToken');
 const uploadImage = require('../middleware/uploadImage');
@@ -20,6 +21,9 @@ router.get('/', getFeed);
 
 // GET /api/posts/user/:userId — posts by a specific user
 router.get('/user/:userId', getUserPosts);
+
+// POST /api/posts/:id/like — toggle like on post
+router.post('/:id/like', toggleLike);
 
 // DELETE /api/posts/:id — delete own post
 router.delete('/:id', deletePost);
