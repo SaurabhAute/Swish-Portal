@@ -7,6 +7,10 @@ const {
   deletePost,
   toggleLike,
 } = require('../controllers/postController');
+const {
+  addComment,
+  getComments,
+} = require('../controllers/commentController');
 const verifyToken = require('../middleware/verifyToken');
 const uploadImage = require('../middleware/uploadImage');
 
@@ -24,6 +28,12 @@ router.get('/user/:userId', getUserPosts);
 
 // POST /api/posts/:id/like — toggle like on post
 router.post('/:id/like', toggleLike);
+
+// POST /api/posts/:postId/comments — add a comment
+router.post('/:postId/comments', addComment);
+
+// GET /api/posts/:postId/comments — get paginated comments
+router.get('/:postId/comments', getComments);
 
 // DELETE /api/posts/:id — delete own post
 router.delete('/:id', deletePost);

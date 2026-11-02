@@ -8,15 +8,15 @@
   - [x] 1.4 Frontend: Add `toggleLike` in `src/services/api.js`
   - [x] 1.5 Frontend: Interactive like button in `PostCard.jsx` with heart icon, aria attributes, optimistic update + rollback, in-flight disabled state
   - [x] 1.6 Commit Likes slice (`feat(likes): ...`)
-- [ ] Step 2: Comments
-  - [ ] 2.1 Backend: Create `Comment` model (`postId`, `authorId`, `text`, `isRemoved`, `createdAt` with indexes)
-  - [ ] 2.2 Backend: Implement `POST /api/posts/:postId/comments` with validation (1-300 chars trimmed) & atomic `commentCount` increment
-  - [ ] 2.3 Backend: Implement `GET /api/posts/:postId/comments` (paginated, oldest first, exclude `isRemoved`, author summary, `hasMore`/`nextCursor`)
-  - [ ] 2.4 Backend: Implement `DELETE /api/comments/:id` (author-only 403 guard, atomic `commentCount` decrement)
-  - [ ] 2.5 Backend: Comments unit & integration tests (validation, auth, author-only delete, missing/removed posts)
-  - [ ] 2.6 Frontend: Add `getComments`, `addComment`, `deleteComment` in `src/services/api.js`
-  - [ ] 2.7 Frontend: Expandable comment section in `PostCard.jsx` (load comments, empty/loading/error-with-retry, 300 char counter, instant add, delete with confirm)
-  - [ ] 2.8 Commit Comments slice (`feat(comments): ...`)
+- [x] Step 2: Comments
+  - [x] 2.1 Backend: Create `Comment` model (`postId`, `authorId`, `text`, `isRemoved`, `createdAt` with indexes)
+  - [x] 2.2 Backend: Implement `POST /api/posts/:postId/comments` with validation (1-300 chars trimmed) & atomic `commentCount` increment
+  - [x] 2.3 Backend: Implement `GET /api/posts/:postId/comments` (paginated, oldest first, exclude `isRemoved`, author summary, `hasMore`/`nextCursor`)
+  - [x] 2.4 Backend: Implement `DELETE /api/comments/:id` (author-only 403 guard, atomic `commentCount` decrement)
+  - [x] 2.5 Backend: Comments unit & integration tests (validation, auth, author-only delete, missing/removed posts)
+  - [x] 2.6 Frontend: Add `getComments`, `addComment`, `deleteComment` in `src/services/api.js`
+  - [x] 2.7 Frontend: Expandable comment section in `PostCard.jsx` (load comments, empty/loading/error-with-retry, 300 char counter, instant add, delete with confirm)
+  - [x] 2.8 Commit Comments slice (`feat(comments): ...`)
 - [ ] Step 3: Follow System
   - [ ] 3.1 Backend: Create `Follow` model (`followerId`, `followingId`, `createdAt` with unique compound index)
   - [ ] 3.2 Backend: Implement idempotent `POST /api/users/:id/follow` and `DELETE /api/users/:id/follow` (prevent self-follow with 400, 404 for missing user)

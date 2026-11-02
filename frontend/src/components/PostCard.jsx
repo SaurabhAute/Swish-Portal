@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { toggleLike } from '../services/api';
+import CommentSection from './CommentSection';
 
 /**
  * PostCard — displays a single post in the feed.
@@ -23,6 +24,10 @@ const PostCard = ({ post, onDelete }) => {
   const [optimisticLike, setOptimisticLike] = useState(null);
   const [likeLoading, setLikeLoading] = useState(false);
   const [likeError, setLikeError] = useState('');
+
+  // Comments state (Person 3 - FR-06, AC-04)
+  const [showComments, setShowComments] = useState(false);
+  const [commentCount, setCommentCount] = useState(post.commentCount || 0);
 
   const isLiked = optimisticLike !== null ? optimisticLike.liked : Boolean(post.likedByMe);
   const currentLikeCount = optimisticLike !== null
@@ -185,17 +190,40 @@ const PostCard = ({ post, onDelete }) => {
           </span>
         </button>
 
-        <span className="post-comment-count">
-          {post.commentCount || 0} {post.commentCount === 1 ? 'comment' : 'comments'}
-        </span>
+        <button
+          type="button"
+          onClick={() => setShowComments((prev) => !prev)}
+          aria-expanded={showComments}
+          aria-controls={`comments-${post._id}`}
+          aria-label={`Comments (${commentCount})`}
+          className={`btn-comment-toggle ${showComments ? 'btn-comment-active' : ''}`}
+        >
+          <svg
+            className="comment-icon"
+            width="17"
+            height="17"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          <span className="post-comment-count">
+            {commentCount} {commentCount === 1 ? 'comment' : 'comments'}
+          </span>
+        </button>
       </div>
 
-      {/* ── COMMENT_SECTION_SLOT ───────────────── */}
-      {/*
-       * Person 3 (Engagement): Drop your CommentSection component here.
-       * Available data: post._id, post.commentCount
-       * Example: <CommentSection postId={post._id} />
-       */}
+      {/* ── Comment Section (Person 3) ──────────── */}
+      <CommentSection
+        postId={post._id}
+        isOpen={showComments}
+        onCommentCountChange={setCommentCount}
+      />
     </article>
   );
 };
