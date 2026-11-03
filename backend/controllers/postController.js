@@ -33,11 +33,9 @@ const createPost = async (req, res) => {
       select: 'profile.firstName profile.lastName profile.avatar email',
     });
 
-    const currentUserId = req.user?._id || req.user?.id;
-
     res.status(201).json({
       message: 'Post created successfully',
-      post: formatPost(post, currentUserId),
+      post: formatPost(post),
     });
   } catch (error) {
     console.error('createPost error:', error.message);
@@ -77,10 +75,9 @@ const getFeed = async (req, res) => {
     const hasMore = posts.length > limit;
     const slicedPosts = hasMore ? posts.slice(0, limit) : posts;
     const nextCursor = hasMore ? slicedPosts[slicedPosts.length - 1]._id : null;
-    const currentUserId = req.user?._id || req.user?.id;
 
     res.status(200).json({
-      posts: slicedPosts.map((p) => formatPost(p, currentUserId)),
+      posts: slicedPosts.map(formatPost),
       nextCursor,
       hasMore,
     });
@@ -127,10 +124,9 @@ const getUserPosts = async (req, res) => {
     const hasMore = posts.length > limit;
     const slicedPosts = hasMore ? posts.slice(0, limit) : posts;
     const nextCursor = hasMore ? slicedPosts[slicedPosts.length - 1]._id : null;
-    const currentUserId = req.user?._id || req.user?.id;
 
     res.status(200).json({
-      posts: slicedPosts.map((p) => formatPost(p, currentUserId)),
+      posts: slicedPosts.map(formatPost),
       nextCursor,
       hasMore,
     });
@@ -180,74 +176,11 @@ const deletePost = async (req, res) => {
   }
 };
 
-// @desc    Toggle like for a post (atomic $addToSet / $pull)
-// @route   POST /api/posts/:id/like
-// @access  Private
-const toggleLike = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid post ID' });
-    }
-
-    const post = await Post.findById(id);
-    if (!post || post.isRemoved) {
-      return res.status(404).json({ message: 'Post not found' });
-    }
-
-    const currentUserId = req.user._id || req.user.id;
-    const currentUserIdStr = currentUserId.toString();
-
-    const alreadyLiked = Array.isArray(post.likes) && post.likes.some(
-      (likerId) => (likerId && likerId.toString() === currentUserIdStr)
-    );
-
-    let updatedPost;
-    if (alreadyLiked) {
-      updatedPost = await Post.findOneAndUpdate(
-        { _id: id, isRemoved: { $ne: true } },
-        { $pull: { likes: currentUserId } },
-        { new: true }
-      );
-    } else {
-      updatedPost = await Post.findOneAndUpdate(
-        { _id: id, isRemoved: { $ne: true } },
-        { $addToSet: { likes: currentUserId } },
-        { new: true }
-      );
-    }
-
-    if (!updatedPost || updatedPost.isRemoved) {
-      return res.status(404).json({ message: 'Post not found' });
-    }
-
-    const liked = Array.isArray(updatedPost.likes) && updatedPost.likes.some(
-      (likerId) => (likerId && likerId.toString() === currentUserIdStr)
-    );
-    const likeCount = Array.isArray(updatedPost.likes) ? updatedPost.likes.length : 0;
-
-    // Notification hook point for Person 5 (Notifications/Infra):
-    // if (liked && post.authorId.toString() !== currentUserIdStr) {
-    //   await createNotification({ recipient: post.authorId, sender: currentUserId, type: 'like', post: post._id });
-    // }
-
-    res.status(200).json({
-      liked,
-      likeCount,
-    });
-  } catch (error) {
-    console.error('toggleLike error:', error.message);
-    res.status(500).json({ message: 'Server error while toggling like' });
-  }
-};
-
 /**
  * Format a post document for API responses.
  * Extracts author summary; never exposes sensitive user fields.
- * Includes computed likeCount and likedByMe without sending raw liker IDs.
  */
-function formatPost(post, currentUserId) {
+function formatPost(post) {
   const author = post.authorId;
   const isPopulated = author && typeof author === 'object' && author._id;
   const authorSummary = isPopulated
@@ -258,16 +191,6 @@ function formatPost(post, currentUserId) {
       }
     : { id: author || null, name: 'Unknown', profilePhotoUrl: '' };
 
-  const likesArray = Array.isArray(post.likes) ? post.likes : [];
-  const currentUserIdStr = currentUserId ? currentUserId.toString() : null;
-  const likedByMe = Boolean(
-    currentUserIdStr &&
-    likesArray.some((likerId) => {
-      const idStr = likerId && likerId._id ? likerId._id.toString() : likerId ? likerId.toString() : null;
-      return idStr === currentUserIdStr;
-    })
-  );
-
   return {
     _id: post._id,
     authorId: authorSummary.id,
@@ -275,9 +198,8 @@ function formatPost(post, currentUserId) {
     imageUrl: post.imageUrl,
     imagePublicId: post.imagePublicId,
     caption: post.caption,
-    likeCount: likesArray.length,
-    likedByMe,
-    commentCount: post.commentCount || 0,
+    likes: post.likes,
+    commentCount: post.commentCount,
     isRemoved: post.isRemoved,
     createdAt: post.createdAt,
   };
@@ -288,5 +210,4 @@ module.exports = {
   getFeed,
   getUserPosts,
   deletePost,
-  toggleLike,
 };

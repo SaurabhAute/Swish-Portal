@@ -70,8 +70,7 @@ All endpoints below require authentication header: `Authorization: Bearer <token
     "imageUrl": "https://res.cloudinary.com/demo/image/upload/v1/swish/posts/photo.jpg",
     "imagePublicId": "swish/posts/photo",
     "caption": "Campus library during golden hour ✨",
-    "likeCount": 0,
-    "likedByMe": false,
+    "likes": [],
     "commentCount": 0,
     "isRemoved": false,
     "createdAt": "2026-11-01T21:40:00.000Z"
@@ -94,8 +93,7 @@ All endpoints below require authentication header: `Authorization: Bearer <token
       "imageUrl": "https://res.cloudinary.com/demo/image/upload/v1/swish/posts/photo.jpg",
       "imagePublicId": "swish/posts/photo",
       "caption": "Campus library during golden hour ✨",
-      "likeCount": 0,
-      "likedByMe": false,
+      "likes": [],
       "commentCount": 0,
       "isRemoved": false,
       "createdAt": "2026-11-01T21:40:00.000Z"
@@ -103,177 +101,6 @@ All endpoints below require authentication header: `Authorization: Bearer <token
   ],
   "nextCursor": "6724fa1031bc00192a54b381",
   "hasMore": true
-}
-```
-
----
-
-## Engagement Slice (Person 3)
-
-The Engagement slice adds interactive likes (FR-05, AC-03), threaded comments with atomic counter management (FR-06, AC-04), and a mutual follow system with follower/following lists and profile counts (FR-07, AC-05).
-
-### 1. Data Models
-
-#### Comment Model (`backend/models/Comment.js`)
-```javascript
-{
-  _id: ObjectId,              // Auto-generated primary key
-  postId: ObjectId,           // Ref: 'Post', required, indexed
-  authorId: ObjectId,         // Ref: 'User', indexed, taken strictly from req.user
-  text: String,               // Trimmed string, minlength 1, maxlength 300 characters, required
-  isRemoved: Boolean,         // Moderation removal flag, default: false
-  createdAt: Date             // Creation timestamp (indexed ascending for chrono comment threads)
-}
-```
-
-**Indexes**:
-- `{ postId: 1, createdAt: 1 }` — Enables fast chronological retrieval of comments for a post.
-- `{ postId: 1, isRemoved: 1, createdAt: 1 }` — Filter active (non-removed) comments in chronological order.
-
-#### Follow Model (`backend/models/Follow.js`)
-```javascript
-{
-  _id: ObjectId,              // Auto-generated primary key
-  followerId: ObjectId,       // Ref: 'User', required, indexed
-  followingId: ObjectId,      // Ref: 'User', required, indexed
-  createdAt: Date             // Timestamp when the follow relationship was established
-}
-```
-
-**Indexes**:
-- `{ followerId: 1, followingId: 1 }` — **UNIQUE** compound index. Enforces relationship uniqueness at database level; prevents duplicate follows and eliminates two-sided count desyncs.
-- `{ followingId: 1, createdAt: -1 }` — Fast query for user's followers list.
-- `{ followerId: 1, createdAt: -1 }` — Fast query for user's following list.
-
-#### Extended Post Response Shape
-Post objects returned by `getFeed`, `getUserPosts`, and `createPost` are additively enriched:
-- `likeCount` (`Number`) — Total likes on the post.
-- `likedByMe` (`Boolean`) — Whether the requesting authenticated user has liked this post.
-- `commentCount` (`Number`) — Current comment count cache.
-- Raw liker IDs array (`likes`) is strictly suppressed from client payloads.
-
-#### Extended Profile Response Shape
-Profile endpoints (`GET /api/users/profile`, `GET /api/users/me`, and `GET /api/users/:id`) are additively enriched:
-- `followersCount` (`Number`) — Total users following this user.
-- `followingCount` (`Number`) — Total users this user is following.
-- `isFollowing` (`Boolean`) — Whether the requesting authenticated user currently follows this user (computed when viewing `/api/users/:id` of another user).
-
----
-
-### 2. API Endpoints
-
-All endpoints require authentication header: `Authorization: Bearer <token>`. Errors are returned in standard format `{ "message": "error description" }`.
-
-| Method | Endpoint | Auth | Request Body | Description |
-|---|---|---|---|---|
-| `POST` | `/api/posts/:id/like` | Required (`verifyToken`) | None | Toggles like for current user using atomic `$addToSet` / `$pull`. Returns `{ liked, likeCount }`. |
-| `POST` | `/api/posts/:postId/comments` | Required (`verifyToken`) | JSON: `{ "text": "..." }` | Creates a comment (1-300 trimmed chars) and atomically increments `post.commentCount`. |
-| `GET` | `/api/posts/:postId/comments` | Required (`verifyToken`) | Query parameters:<br>• `limit` (default: 10, max: 50)<br>• `cursor` (pagination cursor) | Paginated comments for a post (oldest first, excludes `isRemoved: true`). Returns `{ comments, nextCursor, hasMore }`. |
-| `DELETE` | `/api/comments/:id` | Required (`verifyToken`) | None | Deletes comment. Only author can delete (403 otherwise). Atomically decrements `post.commentCount`. |
-| `POST` | `/api/users/:id/follow` | Required (`verifyToken`) | None | Idempotent follow of target user. Prevents self-follow (400). Returns updated counts and `isFollowing: true`. |
-| `DELETE` | `/api/users/:id/follow` | Required (`verifyToken`) | None | Idempotent unfollow of target user. Returns updated counts and `isFollowing: false`. |
-| `GET` | `/api/users/:id/followers` | Required (`verifyToken`) | Query parameters:<br>• `limit` (default: 20, max: 50)<br>• `page` (default: 1) | Paginated list of user summaries following target user (sanitized, no emails/passwords). |
-| `GET` | `/api/users/:id/following` | Required (`verifyToken`) | Query parameters:<br>• `limit` (default: 20, max: 50)<br>• `page` (default: 1) | Paginated list of user summaries target user is following (sanitized, no emails/passwords). |
-
----
-
-### 3. Example Responses
-
-##### `POST /api/posts/:id/like` (200 OK)
-```json
-{
-  "liked": true,
-  "likeCount": 5
-}
-```
-
-##### `POST /api/posts/:postId/comments` (201 Created)
-```json
-{
-  "message": "Comment added successfully",
-  "comment": {
-    "_id": "6724fbad31bc00192a54b395",
-    "postId": "6724fa1031bc00192a54b381",
-    "authorId": "6724f8d231bc00192a54b370",
-    "author": {
-      "id": "6724f8d231bc00192a54b370",
-      "name": "Jane Doe",
-      "profilePhotoUrl": "https://res.cloudinary.com/demo/image/upload/v1/avatar.jpg"
-    },
-    "text": "Stunning lighting! 🌇",
-    "isRemoved": false,
-    "createdAt": "2026-11-01T21:45:10.000Z"
-  }
-}
-```
-
-##### `GET /api/posts/:postId/comments?limit=10` (200 OK)
-```json
-{
-  "comments": [
-    {
-      "_id": "6724fbad31bc00192a54b395",
-      "postId": "6724fa1031bc00192a54b381",
-      "authorId": "6724f8d231bc00192a54b370",
-      "author": {
-        "id": "6724f8d231bc00192a54b370",
-        "name": "Jane Doe",
-        "profilePhotoUrl": "https://res.cloudinary.com/demo/image/upload/v1/avatar.jpg"
-      },
-      "text": "Stunning lighting! 🌇",
-      "isRemoved": false,
-      "createdAt": "2026-11-01T21:45:10.000Z"
-    }
-  ],
-  "nextCursor": "6724fbad31bc00192a54b395",
-  "hasMore": false
-}
-```
-
-##### `DELETE /api/comments/:id` (200 OK)
-```json
-{
-  "message": "Comment deleted successfully"
-}
-```
-
-##### `POST /api/users/:id/follow` (200 OK)
-```json
-{
-  "success": true,
-  "message": "User followed successfully",
-  "isFollowing": true,
-  "followersCount": 12,
-  "followingCount": 8
-}
-```
-
-##### `DELETE /api/users/:id/follow` (200 OK)
-```json
-{
-  "success": true,
-  "message": "User unfollowed successfully",
-  "isFollowing": false,
-  "followersCount": 11,
-  "followingCount": 8
-}
-```
-
-##### `GET /api/users/:id/followers?limit=10&page=1` (200 OK)
-```json
-{
-  "users": [
-    {
-      "id": "6724f8d231bc00192a54b370",
-      "name": "Jane Doe",
-      "profilePhotoUrl": "https://res.cloudinary.com/demo/image/upload/v1/avatar.jpg",
-      "role": "user"
-    }
-  ],
-  "total": 1,
-  "page": 1,
-  "pages": 1,
-  "hasMore": false
 }
 ```
 
@@ -308,9 +135,8 @@ VITE_API_URL=http://localhost:5000/api
 ```bash
 cd backend
 npm install
-npm run dev             # Starts backend on http://localhost:5000
-npm run test:posts      # Runs Person 2 test suite (11 test suites)
-npm run test:engagement # Runs Person 3 test suite & e2e walkthrough (23 tests + walkthrough)
+npm run dev        # Starts backend on http://localhost:5000
+npm run test:posts # Runs slice automated test suite (11 test suites)
 ```
 
 ### Frontend

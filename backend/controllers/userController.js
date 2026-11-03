@@ -1,28 +1,16 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
-const Follow = require('../models/Follow');
 
 // @desc    Get current user profile
 // @route   GET /api/users/profile, GET /api/users/me
 // @access  Private
 const getUserProfile = async (req, res) => {
   try {
-    const userId = req.user._id || req.user.id;
-    const user = await User.findById(userId);
+    const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-
-    const [followersCount, followingCount] = await Promise.all([
-      Follow.countDocuments({ followingId: user._id }),
-      Follow.countDocuments({ followerId: user._id }),
-    ]);
-
-    const userObj = user.toJSON();
-    userObj.followersCount = followersCount;
-    userObj.followingCount = followingCount;
-
-    res.status(200).json({ success: true, user: userObj });
+    res.status(200).json({ success: true, user });
   } catch (error) {
     console.error('getUserProfile error:', error.message);
     res.status(500).json({ message: 'Server error while fetching profile' });
@@ -127,24 +115,10 @@ const getUserById = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const currentUserId = req.user ? (req.user._id || req.user.id) : null;
-    const currentUserIdStr = currentUserId ? currentUserId.toString() : null;
-    const isOwn = Boolean(currentUserIdStr && currentUserIdStr === user._id.toString());
-
-    const [followersCount, followingCount, isFollowingDoc] = await Promise.all([
-      Follow.countDocuments({ followingId: user._id }),
-      Follow.countDocuments({ followerId: user._id }),
-      currentUserId && !isOwn
-        ? Follow.findOne({ followerId: currentUserId, followingId: user._id })
-        : null,
-    ]);
-
+    const isOwn = req.user && req.user._id && req.user._id.toString() === user._id.toString();
     const userObj = user.toJSON();
-    userObj.followersCount = followersCount;
-    userObj.followingCount = followingCount;
 
     if (!isOwn) {
-      userObj.isFollowing = Boolean(isFollowingDoc);
       delete userObj.email;
       if (userObj.profile) {
         delete userObj.profile.phone;
