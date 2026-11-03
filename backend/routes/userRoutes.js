@@ -7,6 +7,12 @@ const {
   getUserById,
   getAllUsers,
 } = require('../controllers/userController');
+const {
+  followUser,
+  unfollowUser,
+  getFollowers,
+  getFollowing,
+} = require('../controllers/followController');
 const { changePassword } = require('../controllers/authController');
 const verifyToken = require('../middleware/verifyToken');
 
@@ -24,6 +30,12 @@ router.put('/me', updateUserProfile);
 
 // Password change endpoint
 router.put('/change-password', changePassword);
+
+// Follow endpoints (Person 3 - FR-07, AC-05)
+router.post('/:id/follow', followUser);
+router.delete('/:id/follow', unfollowUser);
+router.get('/:id/followers', getFollowers);
+router.get('/:id/following', getFollowing);
 
 // User lookup endpoints
 router.get('/', getAllUsers);
